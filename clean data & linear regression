@@ -1,10 +1,11 @@
 #read file u.item
+
 item_data <- read.delim("ml-100k/u.item", head = FALSE, sep = "|")
 A <- data.matrix(item_data)[, -c(2:5)]
 colnames(A) <- c("movie_id","unknown","Action","Adventure","Animation","Childrens","Comedy","Crime","Documentary","Drama","Fantasy","Film-Noir","Horror","Musical","Mystery","Romance","Sci-Fi","Thriller","War","Western")
 head(A,5)
 
-#Transform columns
+# Transform columns
 G <- matrix(nrow = 1682, ncol = 4)
 G[,1] = rowSums(A[,c(3,4,11,13,17,18)])
 G[,2] = rowSums(A[,5:6])
@@ -97,7 +98,7 @@ colMeans(MSEtrain)
 
 colMeans(MSEtest)
 
-##Perform statistical analysis on results
+## Perform statistical analysis on results
 par(mfrow = c(1,2))
 plot(x = c(4,1,5,9), colMeans(MSEtrain), xlab = "Flexibility", ylab = "MSE_train")
 plot(x = c(4,1,5,9), colMeans(MSEtest), xlab = "Flexibility", ylab = "MSE_test")
