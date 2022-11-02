@@ -1,0 +1,100 @@
+
+item_data <- read.delim("ml-100k/u.item", head = FALSE, sep = "|")
+A <- data.matrix(item_data)[, -c(2:5)]
+colnames(A) <- c("movie_id","unknown","Action","Adventure","Animation","Childrens","Comedy","Crime","Documentary","Drama","Fantasy","Film-Noir","Horror","Musical","Mystery","Romance","Sci-Fi","Thriller","War","Western")
+head(A,5)
+
+G <- matrix(nrow = 1682, ncol = 4)
+G[,1] = rowSums(A[,c(3,4,11,13,17,18)])
+G[,2] = rowSums(A[,5:6])
+G[,3] = A[,7]
+G[,4] = rowSums(A[, c(8:10,12,14:16,19,20)])
+colnames(G) <- c("action","children","comedy","drama")
+head(G,5)
+
+u_data <- read.delim("ml-100k/u.data",header = FALSE,sep = "")
+names(u_data) <- c("user_id","item_id","rating","timestamp")
+B <- data.matrix(u_data)
+y <- B[,3]
+head(B,5)
+
+pop <- u_data %>%
+group_by(item_id, rating) %>%
+summarize(n_2lev = n()) %>%
+group_by(item_id) %>%
+mutate(n_all = sum(n_2lev))
+
+pop[pop$rating<=3, 3] = 0
+pop <- pop %>%
+group_by(item_id) %>%
+summarize(n_pop = sum(n_2lev), n_total = mean(n_all)) %>%
+transmute(p_val = n_pop/n_total) %>%
+transmute(pop_val = log((p_val+0.5)/(1-p_val+1)))
+head(pop,5)
+
+pop_G <- cbind(pop, G, item_id = 1:1682)
+Resp <- cbind(B[,c(2,3)], row_id = 1:1e5)
+X <- merge(Resp, pop_G, by = "item_id")
+X <- X[order(X$row_id),]
+X <- X[,-grep("item_id|rating|row_id",colnames(X))]
+
+X <- cbind(intercept_ = rep(1,1e5), X)
+head(X,n=5)
+
+
+write.csv(X,file = "ml-100k/design_matrix.csv")
+write.csv(y,file = "ml-100k/response.csv")
+
+lm_s <- lm(y ~. + pop_val:action + pop_val:children + pop_val:comedy + pop_val:drama, data_xy)
+summary(lm_s)
+
+MSEtrain <- matrix(rep(NA, 10*4), nrow = 10)
+colnames<-(c("g", "p", "a", "s"))
+MSEtest <- matrix(rep(NA, 10*4), nrow = 10)
+colnames<-(c("g", "p", "a", "s"))
+for (i in 1:10) {
+da_train <- data_xy[(1000 * (i - 1) + 1) : (1000 * i), ]
+da_test <- data_xy[-((1000 * (i - 1) + 1) : (1000 * i)) , ]
+lm_g <- lm(y ~ action + children + comedy + drama, da_train)
+lm_p <- lm(y ~ pop_val, da_train)
+lm_a <- lm(y ~., da_train)
+lm_s <- lm(y ~. + pop_val:action + pop_val:children + pop_val:comedy + pop_val:drama, da_train)
+ResTrain_g <- lm_g$residuals
+ResTrain_p <- lm_p$residuals
+ResTrain_a <- lm_a$residuals
+ResTrain_s <- lm_s$residuals
+ResTest_g <- da_test$y - predict(lm_g, da_test)
+ResTest_p <- da_test$y - predict(lm_p, da_test) #residuals for testing set
+ResTest_a <- da_test$y - predict(lm_a, da_test)
+ResTest_s <- da_test$y - predict(lm_s, da_test)
+msetrain_g <- mean(ResTrain_gˆ2)
+msetrain_p <- mean(ResTrain_pˆ2)
+msetrain_a <- mean(ResTrain_aˆ2)
+msetrain_s <- mean(ResTrain_sˆ2)
+msetest_g <- mean(ResTest_gˆ2)
+msetest_p <- mean(ResTest_pˆ2)
+msetest_a <- mean(ResTest_aˆ2)
+msetest_s <- mean(ResTest_sˆ2)
+MSEtrain[i, 1] <- msetrain_g
+MSEtrain[i, 2] <- msetrain_p
+MSEtrain[i, 3] <- msetrain_a
+MSEtrain[i, 4] <- msetrain_s
+MSEtest[i, 1] <- msetest_g
+MSEtest[i, 2] <- msetest_p
+MSEtest[i, 3] <- msetest_a
+MSEtest[i, 4] <- msetest_s
+}
+colMeans(MSEtrain)
+
+colMeans(MSEtest)
+
+par(mfrow = c(1,2))
+plot(x = c(4,1,5,9), colMeans(MSEtrain), xlab = "Flexibility", ylab = "MSE_train")
+plot(x = c(4,1,5,9), colMeans(MSEtest), xlab = "Flexibility", ylab = "MSE_test")
+
+
+
+
+
+
+
