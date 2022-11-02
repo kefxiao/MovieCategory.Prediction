@@ -1,0 +1,77 @@
+
+## Validation Set Approach
+
+quality <- read.csv("quality.csv")
+
+## K sequence
+kseq <- c(1:5, 10, 100, 200, 300, 400)
+## Validation Set approach: 50-50 split
+trainIndex <- createDataPartition(quality$category, p = .5,
+list = FALSE,
+times = 1)
+train <- quality[trainIndex, ]
+test <- quality[-trainIndex, ]
+knn_er_val <- numeric(length(kseq))
+for (ii in seq_along(kseq)) {
+knn_val <- knn(train[ , 2:3], test[ , 2:3], cl = train$category, k = kseq[ii])
+confMat <- confusionMatrix(table(knn_val, test$category))
+knn_er_val[ii] <- 1 - confMat$overall["Accuracy"]
+}
+optK_val <- kseq[which.min(knn_er_val)]
+## plot of test error rate vs flexibility
+plot(1 / kseq, knn_er_val, xlab = "1/K", ylab = "Test ER",
+type = "b", main = "Validation Set Approach")
+abline(v = 1 / optK_val, lty = "dotted")
+
+##10-fold CV
+
+ctrl = trainControl(method = "cv", number = 10,
+savePredictions = TRUE)
+knn_cv = train(factor(category) ~.,
+data = quality,
+method = "knn",
+preProcess = c("center", "scale"),
+trControl = ctrl,
+tuneGrid = expand.grid(k = kseq))
+## accuracy
+knn_acc <- knn_cv$results$Accuracy
+## error rate = 1 - accuracy
+knn_er <- 1 - knn_cv$results$Accuracy
+## optimal choice of K
+optK <- kseq[which.min(knn_er)]
+## plot of test error rate vs flexibility
+plot(1 / kseq, knn_er, xlab = "1/K", ylab = "Test ER",
+type = "b", main = "10-Fold CV")
+abline(v = 1 / optK, lty = "dotted")
+
+
+## LOOCV
+
+## LOOCV; verboseIter is for tracking the fold of LOOCV
+ctrl = trainControl(method = "LOOCV", number = 1,
+savePredictions = TRUE, verboseIter = FALSE)
+knn_loocv = train(factor(category) ~.,
+data = quality,
+method = "knn",
+preProcess = c("center", "scale"),
+trControl = ctrl,
+tuneGrid = expand.grid(k = kseq))
+## accuracy
+knn_acc_loocv <- knn_loocv$results$Accuracy
+## error rate = 1 - accuracy
+knn_er_loocv <- 1 - knn_loocv$results$Accuracy
+## optimal choice of K
+optK_loocv <- kseq[which.min(knn_er_loocv)]
+## plot of test error rate vs flexibility
+plot(1 / kseq, knn_er_loocv, xlab = "1/K", ylab = "Test ER",
+type = "b", main = "LOOCV")
+
+
+
+
+
+
+
+
+
+
